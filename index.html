@@ -17,9 +17,7 @@ body{
   background:var(--bg);
   color:var(--text);
   margin:0;padding:18px;
-  transition:background .18s,color .18s;
 }
-body.light{ background:#f4f4f4; color:#222; }
 
 .header{display:flex;align-items:center;justify-content:space-between;gap:12px}
 .header-left{display:flex;gap:12px;align-items:center}
@@ -56,27 +54,24 @@ button.ghost{background:transparent;border:1px solid rgba(255,255,255,0.1)}
 
 .status { font-size:13px }
 
-/* === Farben für NICHT-ADMIN === */
+/* Farben */
 .status-green { color:#2ecc71; font-weight:600 }
 .status-red   { color:#e74c3c; font-weight:600 }
 
-/* === Checkbox Farben === */
 .chk{
   width:18px;height:18px;
-  accent-color:#e74c3c; /* rot default */
+  accent-color:#e74c3c;
 }
 .chk.submitted{
-  accent-color:#2ecc71 !important; /* grün wenn abgegeben */
+  accent-color:#2ecc71 !important;
 }
 
-/* Admin Panels */
 .panel{
   position:fixed; top:12px; right:12px;
   background:var(--card); border:1px solid var(--gold);
   padding:12px; border-radius:10px; width:300px;
   display:none; z-index:2000;
 }
-body.light .panel{ background:white; border-color:#666; color:#111 }
 
 #playerManager textarea{
   width:100%;height:150px;padding:8px;border-radius:8px;
@@ -88,7 +83,6 @@ body.light .panel{ background:white; border-color:#666; color:#111 }
   color:var(--gold);
   margin-right:15px;
 }
-
 </style>
 </head>
 <body>
@@ -105,7 +99,8 @@ body.light .panel{ background:white; border-color:#666; color:#111 }
 
     <button id="btnEditMoney" onclick="openMoneyPanel()" style="display:none;">+ / – Geld</button>
 
-    <button onclick="toggleTheme()">Theme</button>
+    <!-- Theme Button entfernt -->
+
     <button id="btnOpenLogin" onclick="openAdminPanel()">Login</button>
     <button id="btnLogout" onclick="openLogoutPanel()" style="display:none;background:#c0392b;color:white">Logout</button>
     <button id="btnPlayerManager" onclick="openPlayerManager()">Spieler verwalten</button>
@@ -160,7 +155,6 @@ body.light .panel{ background:white; border-color:#666; color:#111 }
 const ADMIN_USER = "siteadmin";
 const ADMIN_PASS = "Nebula-47X";
 
-/* SESSION */
 function isAdmin(){ return localStorage.getItem("kazal_admin")==="1"; }
 function setAdmin(v){ 
     if(v) localStorage.setItem("kazal_admin","1");
@@ -198,19 +192,13 @@ function applyMoney(){
     closeMoneyPanel();
 }
 
-/* SPIELERLISTE */
+/* SPIELER */
 let players = [
 "Alaric","Cem","Cynthia","Emma","Finch","Gio","Hailey","John C.","John Ghost","John Gray","John W.",
 "Justin W.","Luca M.","Luca W.","Lucia","Manu","Marco","Marvin","Martinez","Miguel","Muki","Nino",
 "Noe","Pablo","Paul","Sebastian","Sandy","Sero","Wojtek","Zeko"
 ];
 
-try{
-    if(localStorage.getItem("kazal_players"))
-        players = JSON.parse(localStorage.getItem("kazal_players"));
-}catch(e){}
-
-/* HELPER */
 function slug(t){ return t.replace(/[^a-z0-9]/gi,"_").toLowerCase(); }
 
 /* RENDER */
@@ -250,7 +238,6 @@ function renderPlayers(){
                 status.className = "status status-green";
                 status.textContent = "Wochenabgabe abgegeben";
 
-                /* AUTOMATISCH 400.000$ */
                 addMoney(400000);
 
             } else {
@@ -285,7 +272,6 @@ function attemptLogin(){
     if(u===ADMIN_USER && p===ADMIN_PASS){
         setAdmin(true);
         closeAdminPanel();
-        alert("Erfolgreich eingeloggt!");
         renderPlayers();
     } else {
         document.getElementById("loginMsg").style.display="block";
@@ -293,7 +279,6 @@ function attemptLogin(){
     }
 }
 
-/* UI */
 function openAdminPanel(){ document.getElementById("adminPanel").style.display="block"; }
 function closeAdminPanel(){ document.getElementById("adminPanel").style.display="none"; }
 
@@ -302,12 +287,11 @@ function closeLogoutPanel(){ document.getElementById("logoutPanel").style.displa
 function logoutNow(){ 
     setAdmin(false);
     closeLogoutPanel();
-    alert("Abgemeldet");
     renderPlayers();
 }
 
 function openPlayerManager(){
-    if(!isAdmin()){ alert("Nur Admin!"); return; }
+    if(!isAdmin()) return;
     document.getElementById("playerListInput").value = players.join("\n");
     document.getElementById("playerManager").style.display="block";
 }
@@ -320,9 +304,6 @@ function savePlayerList(){
     renderPlayers();
     closePlayerManager();
 }
-
-/* THEME */
-function toggleTheme(){ document.body.classList.toggle("light"); }
 
 /* AUTH-UI */
 function updateUiForAuth(){
@@ -340,3 +321,5 @@ renderPlayers();
 
 </body>
 </html>
+
+
