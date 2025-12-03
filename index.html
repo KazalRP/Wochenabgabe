@@ -83,6 +83,12 @@ body.light .panel{ background:white; border-color:#666; color:#111 }
   background:#0c0c0c;color:var(--text);border:1px solid #222;
 }
 
+#familyMoneyBox {
+  font-weight:bold;
+  color:var(--gold);
+  margin-right:15px;
+}
+
 </style>
 </head>
 <body>
@@ -95,6 +101,10 @@ body.light .panel{ background:white; border-color:#666; color:#111 }
   </div>
 
   <div class="controls">
+    <div id="familyMoneyBox">Familienkonto: <span id="familyMoney">0</span> $</div>
+
+    <button id="btnEditMoney" onclick="openMoneyPanel()" style="display:none;">+ / – Geld</button>
+
     <button onclick="toggleTheme()">Theme</button>
     <button id="btnOpenLogin" onclick="openAdminPanel()">Login</button>
     <button id="btnLogout" onclick="openLogoutPanel()" style="display:none;background:#c0392b;color:white">Logout</button>
@@ -136,6 +146,15 @@ body.light .panel{ background:white; border-color:#666; color:#111 }
   </div>
 </div>
 
+<!-- MONEY PANEL -->
+<div id="moneyPanel" class="panel">
+  <b>Familienkonto ändern</b>
+  <p>Betrag eingeben (z.B. 50000 oder -25000)</p>
+  <input id="moneyInput" type="number" style="width:100%;padding:8px;">
+  <button class="save-btn" style="margin-top:8px" onclick="applyMoney()">Speichern</button>
+  <button onclick="closeMoneyPanel()" style="margin-top:8px">Schließen</button>
+</div>
+
 <script>
 /* LOGIN DATEN */
 const ADMIN_USER = "siteadmin";
@@ -147,6 +166,36 @@ function setAdmin(v){
     if(v) localStorage.setItem("kazal_admin","1");
     else localStorage.removeItem("kazal_admin");
     updateUiForAuth();
+}
+
+/* FAMILIENKONTO */
+let familyMoney = parseInt(localStorage.getItem("kazal_family_money") || "0");
+
+function updateMoneyDisplay(){
+    document.getElementById("familyMoney").textContent =
+        familyMoney.toLocaleString();
+}
+
+function addMoney(amount){
+    familyMoney += amount;
+    localStorage.setItem("kazal_family_money", familyMoney);
+    updateMoneyDisplay();
+}
+
+function openMoneyPanel(){
+    if(!isAdmin()) return;
+    document.getElementById("moneyPanel").style.display="block";
+}
+
+function closeMoneyPanel(){
+    document.getElementById("moneyPanel").style.display="none";
+}
+
+function applyMoney(){
+    let val = parseInt(document.getElementById("moneyInput").value);
+    if(isNaN(val)) return alert("Ungültiger Betrag!");
+    addMoney(val);
+    closeMoneyPanel();
 }
 
 /* SPIELERLISTE */
@@ -184,7 +233,8 @@ function renderPlayers(){
         card.innerHTML = `
           <div class="row">
             <b>${name}</b>
-            <input type="checkbox" class="chk ${checked ? 'submitted':''}" data-player="${name}" ${checked?'checked':''} ${!admin?'disabled':''}>
+            <input type="checkbox" class="chk ${checked ? 'submitted':''}" 
+                   data-player="${name}" ${checked?'checked':''} ${!admin?'disabled':''}>
           </div>
           <div class="status ${statusClass}">
             ${checked ? 'Wochenabgabe abgegeben' : 'Wochenabgabe offen'}
@@ -199,6 +249,10 @@ function renderPlayers(){
                 cb.classList.add("submitted");
                 status.className = "status status-green";
                 status.textContent = "Wochenabgabe abgegeben";
+
+                /* AUTOMATISCH 400.000$ */
+                addMoney(400000);
+
             } else {
                 cb.classList.remove("submitted");
                 status.className = "status status-red";
@@ -273,12 +327,14 @@ function toggleTheme(){ document.body.classList.toggle("light"); }
 /* AUTH-UI */
 function updateUiForAuth(){
     const admin = isAdmin();
-    document.getElementById("btnOpenLogin").style.display = admin ? "none":"inline-block";
-    document.getElementById("btnLogout").style.display    = admin ? "inline-block":"none";
+    document.getElementById("btnOpenLogin").style.display  = admin ? "none" : "inline-block";
+    document.getElementById("btnLogout").style.display     = admin ? "inline-block" : "none";
     document.getElementById("btnPlayerManager").style.display = admin ? "inline-block":"none";
+    document.getElementById("btnEditMoney").style.display  = admin ? "inline-block" : "none";
 }
 
 /* INIT */
+updateMoneyDisplay();
 renderPlayers();
 </script>
 
