@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Kazal – Wochenabgabe</title>
+
+<style>
+:root{
+  --bg:#0a0a0a; --card:#111; --gold:#f1c40f; --muted:#cdbf78; --text:#e6d89a;
+}
+
+*{ box-sizing:border-box }
+
+body{
+  font-family:Inter,Arial;
+  background:var(--bg);
+  color:var(--text);
+  margin:0;padding:18px;
+  transition:background .18s,color .18s;
+}
+body.light{ background:#f4f4f4; color:#222; }
+
+.header{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.header-left{display:flex;gap:12px;align-items:center}
+
+h1{margin:0;font-size:20px;color:var(--gold)}
+
+.controls{display:flex;gap:8px;align-items:center}
+
+button{
+  padding:8px 10px;border-radius:8px;border:none;
+  cursor:pointer;background:rgba(255,255,255,0.05);color:inherit
+}
+button.save-btn{background:var(--gold);color:#000;font-weight:700}
+button.ghost{background:transparent;border:1px solid rgba(255,255,255,0.1)}
+
+.player-grid{
+  margin-top:18px;
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
+  gap:10px;
+}
+
+.player-card{
+  background:var(--card);
+  border-radius:10px;
+  padding:10px;
+  border:1px solid rgba(241,196,15,0.08);
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+}
+
+.player-card .row{display:flex;justify-content:space-between;align-items:center}
+
+.status { font-size:13px }
+
+/* === Farben für NICHT-ADMIN === */
+.status-green { color:#2ecc71; font-weight:600 }
+.status-red   { color:#e74c3c; font-weight:600 }
+
+/* === Checkbox Farben === */
+.chk{
+  width:18px;height:18px;
+  accent-color:#e74c3c; /* rot default */
+}
+.chk.submitted{
+  accent-color:#2ecc71 !important; /* grün wenn abgegeben */
+}
+
+/* Admin Panels */
+.panel{
+  position:fixed; top:12px; right:12px;
+  background:var(--card); border:1px solid var(--gold);
+  padding:12px; border-radius:10px; width:300px;
+  display:none; z-index:2000;
+}
+body.light .panel{ background:white; border-color:#666; color:#111 }
+
+#playerManager textarea{
+  width:100%;height:150px;padding:8px;border-radius:8px;
+  background:#0c0c0c;color:var(--text);border:1px solid #222;
+}
+
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="header">
+  <div class="header-left">
+    <h1>Kazal – Wochenabgabe</h1>
+    <div style="font-size:13px;color:#cdbf78">Wer hat diese Woche abgegeben?</div>
+  </div>
+
+  <div class="controls">
+    <button onclick="toggleTheme()">Theme</button>
+    <button id="btnOpenLogin" onclick="openAdminPanel()">Login</button>
+    <button id="btnLogout" onclick="openLogoutPanel()" style="display:none;background:#c0392b;color:white">Logout</button>
+    <button id="btnPlayerManager" onclick="openPlayerManager()">Spieler verwalten</button>
+    <button class="save-btn" onclick="saveAll()">Speichern</button>
+  </div>
+</div>
+
+<!-- PLAYER GRID -->
+<div id="players" class="player-grid"></div>
+
+<!-- LOGIN PANEL -->
+<div id="adminPanel" class="panel">
+  <b>Admin Login</b><br><br>
+  <input id="loginUser" placeholder="Benutzername" style="width:100%;padding:8px">
+  <input id="loginPass" type="password" placeholder="Passwort" style="width:100%;padding:8px;margin-top:6px">
+  <div style="display:flex;gap:8px;margin-top:10px">
+    <button class="save-btn" onclick="attemptLogin()">Login</button>
+    <button class="ghost" onclick="closeAdminPanel()">Schließen</button>
+  </div>
+  <div id="loginMsg" style="margin-top:8px;color:#f55;display:none"></div>
+</div>
+
+<!-- LOGOUT PANEL -->
+<div id="logoutPanel" class="panel">
+  <b>Abmelden?</b>
+  <p>Möchtest du dich wirklich abmelden?</p>
+  <button style="background:#c0392b;color:white" onclick="logoutNow()">Ja</button>
+  <button onclick="closeLogoutPanel()">Nein</button>
+</div>
+
+<!-- PLAYER MANAGER -->
+<div id="playerManager" class="panel" style="width:340px;">
+  <b>Spieler bearbeiten</b>
+  <textarea id="playerListInput"></textarea>
+  <div style="display:flex;gap:10px;margin-top:10px">
+    <button class="save-btn" onclick="savePlayerList()">Speichern</button>
+    <button onclick="closePlayerManager()">Schließen</button>
+  </div>
+</div>
+
+<script>
+/* LOGIN DATEN */
+const ADMIN_USER = "siteadmin";
+const ADMIN_PASS = "Nebula-47X";
+
+/* SESSION */
+function isAdmin(){ return localStorage.getItem("kazal_admin")==="1"; }
+function setAdmin(v){ 
+    if(v) localStorage.setItem("kazal_admin","1");
+    else localStorage.removeItem("kazal_admin");
+    updateUiForAuth();
+}
+
+/* SPIELERLISTE */
+let players = [
+"Alaric","Cem","Cynthia","Emma","Finch","Gio","Hailey","John C.","John Ghost","John Gray","John W.",
+"Justin W.","Luca M.","Luca W.","Lucia","Manu","Marco","Marvin","Martinez","Miguel","Muki","Nino",
+"Noe","Pablo","Paul","Sebastian","Sandy","Sero","Wojtek","Zeko"
+];
+
+try{
+    if(localStorage.getItem("kazal_players"))
+        players = JSON.parse(localStorage.getItem("kazal_players"));
+}catch(e){}
+
+/* HELPER */
+function slug(t){ return t.replace(/[^a-z0-9]/gi,"_").toLowerCase(); }
+
+/* RENDER */
+function renderPlayers(){
+    const box = document.getElementById("players");
+    box.innerHTML = "";
+
+    const admin = isAdmin();
+
+    players.forEach(name=>{
+        const key = "kazal_"+slug(name);
+        const saved = JSON.parse(localStorage.getItem(key) || "{}");
+        const checked = !!saved.abgabe;
+
+        const card = document.createElement("div");
+        card.className = "player-card";
+
+        let statusClass = checked ? "status-green" : "status-red";
+
+        card.innerHTML = `
+          <div class="row">
+            <b>${name}</b>
+            <input type="checkbox" class="chk ${checked ? 'submitted':''}" data-player="${name}" ${checked?'checked':''} ${!admin?'disabled':''}>
+          </div>
+          <div class="status ${statusClass}">
+            ${checked ? 'Wochenabgabe abgegeben' : 'Wochenabgabe offen'}
+          </div>
+        `;
+
+        const cb = card.querySelector(".chk");
+        const status = card.querySelector(".status");
+
+        cb.addEventListener("change", e=>{
+            if(e.target.checked){
+                cb.classList.add("submitted");
+                status.className = "status status-green";
+                status.textContent = "Wochenabgabe abgegeben";
+            } else {
+                cb.classList.remove("submitted");
+                status.className = "status status-red";
+                status.textContent = "Wochenabgabe offen";
+            }
+        });
+
+        box.appendChild(card);
+    });
+
+    updateUiForAuth();
+}
+
+/* SAVE */
+function saveAll(){
+    document.querySelectorAll(".chk").forEach(cb=>{
+        const key = "kazal_"+slug(cb.dataset.player);
+        localStorage.setItem(key,JSON.stringify({
+            abgabe:cb.checked,
+            updated:new Date().toISOString()
+        }));
+    });
+    alert("Gespeichert!");
+}
+
+/* LOGIN */
+function attemptLogin(){
+    let u=document.getElementById("loginUser").value.trim();
+    let p=document.getElementById("loginPass").value;
+    if(u===ADMIN_USER && p===ADMIN_PASS){
+        setAdmin(true);
+        closeAdminPanel();
+        alert("Erfolgreich eingeloggt!");
+        renderPlayers();
+    } else {
+        document.getElementById("loginMsg").style.display="block";
+        document.getElementById("loginMsg").textContent="Falsche Daten!";
+    }
+}
+
+/* UI */
+function openAdminPanel(){ document.getElementById("adminPanel").style.display="block"; }
+function closeAdminPanel(){ document.getElementById("adminPanel").style.display="none"; }
+
+function openLogoutPanel(){ document.getElementById("logoutPanel").style.display="block"; }
+function closeLogoutPanel(){ document.getElementById("logoutPanel").style.display="none"; }
+function logoutNow(){ 
+    setAdmin(false);
+    closeLogoutPanel();
+    alert("Abgemeldet");
+    renderPlayers();
+}
+
+function openPlayerManager(){
+    if(!isAdmin()){ alert("Nur Admin!"); return; }
+    document.getElementById("playerListInput").value = players.join("\n");
+    document.getElementById("playerManager").style.display="block";
+}
+function closePlayerManager(){ document.getElementById("playerManager").style.display="none"; }
+
+function savePlayerList(){
+    players = document.getElementById("playerListInput").value
+        .split("\n").map(x=>x.trim()).filter(x=>x);
+    localStorage.setItem("kazal_players",JSON.stringify(players));
+    renderPlayers();
+    closePlayerManager();
+}
+
+/* THEME */
+function toggleTheme(){ document.body.classList.toggle("light"); }
+
+/* AUTH-UI */
+function updateUiForAuth(){
+    const admin = isAdmin();
+    document.getElementById("btnOpenLogin").style.display = admin ? "none":"inline-block";
+    document.getElementById("btnLogout").style.display    = admin ? "inline-block":"none";
+    document.getElementById("btnPlayerManager").style.display = admin ? "inline-block":"none";
+}
+
+/* INIT */
+renderPlayers();
+</script>
+
+</body>
+</html>
